@@ -34,6 +34,9 @@ if (SERVER) then
 	-- KeyPress
 	function tcb_StaminaPress( ply, key )
 		if key == IN_SPEED or ply:KeyDown(IN_SPEED) then
+			if ply:InVehicle() then return end
+			if ply:GetMoveType() == MOVETYPE_NOCLIP then return end
+			if ply:GetMoveType() ==  MOVETYPE_LADDER then return end
 			if ply:GetNWInt( "tcb_Stamina" ) >= DisableLevel then
 				ply:SetRunSpeed( DefaultRunSpeed )
 				timer.Destroy( "tcb_StaminaGain" )
@@ -43,7 +46,10 @@ if (SERVER) then
 						timer.Destroy( "tcb_StaminaTimer" )
 						return false
 					end
-					ply:SetNWInt( "tcb_Stamina", ply:GetNWInt( "tcb_Stamina" ) - 1 )
+					local vel = ply:GetVelocity()
+					if vel.x >= DefaultWalkSpeed or vel.x <= -DefaultWalkSpeed or vel.y >= DefaultWalkSpeed or vel.y <= -DefaultWalkSpeed then
+						ply:SetNWInt( "tcb_Stamina", ply:GetNWInt( "tcb_Stamina" ) - 1 )
+					end
 				end)
 			else
 				ply:SetRunSpeed( DefaultWalkSpeed )
