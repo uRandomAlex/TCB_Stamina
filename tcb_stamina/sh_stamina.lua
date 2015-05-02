@@ -34,6 +34,9 @@ if (SERVER) then
 	-- KeyPress
 	function tcb_StaminaPress( ply, key )
 		if key == IN_SPEED or ply:KeyDown(IN_SPEED) then
+			if ply:InVehicle() then return end
+			if ply:GetMoveType() == MOVETYPE_NOCLIP then return end
+			if ply:GetMoveType() ==  MOVETYPE_LADDER then return end
 			if ply:GetNWInt( "tcb_Stamina" ) >= DisableLevel then
 				ply:SetRunSpeed( DefaultRunSpeed )
 				timer.Destroy( "tcb_StaminaGain" )
