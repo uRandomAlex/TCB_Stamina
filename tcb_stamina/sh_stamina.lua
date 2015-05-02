@@ -46,7 +46,10 @@ if (SERVER) then
 						timer.Destroy( "tcb_StaminaTimer" )
 						return false
 					end
-					ply:SetNWInt( "tcb_Stamina", ply:GetNWInt( "tcb_Stamina" ) - 1 )
+					local vel = ply:GetVelocity()
+					if vel.x >= DefaultWalkSpeed or vel.x <= -DefaultWalkSpeed or vel.y >= DefaultWalkSpeed or vel.y <= -DefaultWalkSpeed then
+						ply:SetNWInt( "tcb_Stamina", ply:GetNWInt( "tcb_Stamina" ) - 1 )
+					end
 				end)
 			else
 				ply:SetRunSpeed( DefaultWalkSpeed )
