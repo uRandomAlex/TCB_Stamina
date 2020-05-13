@@ -6,117 +6,144 @@
 	
 ---------------------------------------------------------------------------*/
 
-local ShouldDrawHUD			= true	-- true/false
+//Config start.
 
-local DefaultRunSpeed		= 240	-- If you change this value you need to change it in garrysmod\addons\darkrpmodification\lua\darkrp_config\settings.lua too
-local DefaultWalkSpeed		= 160	-- If you change this value you need to change it in garrysmod\addons\darkrpmodification\lua\darkrp_config\settings.lua too
-local DefaultJumpPower		= 200
+//local DontDrawHUD = true	-- true/false
+//local StaminaOnAllClients = true
 
-local DisableLevel			= 10	-- (0 - 100) When should Run & Jump get disabled
+local StaminaDrainSpeed = 0.25	-- Time in seconds
+local StaminaRestoreSpeed = 0.75	-- Time in seconds
 
-local StaminaDrainSpeed 	= 0.25	-- Time in seconds
-local StaminaRestoreSpeed 	= 0.75	-- Time in seconds
+//Config end.
 
 
--- Server
-if (SERVER) then
-	
-	-- PlayerSpawn
-	function tcb_StaminaStart( ply )
-		timer.Destroy( "tcb_StaminaTimer" )
-		ply:SetRunSpeed( DefaultRunSpeed )
-		ply:SetNWInt( "tcb_Stamina", 100 )
-		
-		tcb_StaminaRestore( ply )
+-- bad code incoming
+-- i warned you
+
+Stamina = Stamina or {}
+
+local _mvdata = FindMetaTable( "CMoveData" )
+
+// thx gmod wiki
+function _mvdata:RemoveKeys( keys )
+	-- Using bitwise operations to clear the key bits.
+	local newbuttons = bit.band( self:GetButtons(), bit.bnot(keys) )
+	self:SetButtons( newbuttons )
+end
+
+//PlayerSpawn
+hook.Add( "PlayerSpawn", "StaminaPSpawn", function( ply )
+	if ply.SteamID then
+		timer.Destroy( ply:SteamID() .. "_StaminaTimer" )
 	end
-	hook.Add( "PlayerSpawn", "tcb_StaminaStart", tcb_StaminaStart )
-	
-	-- KeyPress
-	function tcb_StaminaPress( ply, key )
-		if key == IN_SPEED or ply:KeyDown(IN_SPEED) then
-			if ply:InVehicle() then return end
-			if ply:GetMoveType() == MOVETYPE_NOCLIP then return end
-			if ply:GetMoveType() ==  MOVETYPE_LADDER then return end
-			if ply:GetNWInt( "tcb_Stamina" ) >= DisableLevel then
-				ply:SetRunSpeed( DefaultRunSpeed )
-				timer.Destroy( "tcb_StaminaGain" )
-				timer.Create( "tcb_StaminaTimer", StaminaDrainSpeed, 0, function( )
-					if ply:GetNWInt( "tcb_Stamina" ) <= 0 then
-						ply:SetRunSpeed( DefaultWalkSpeed )
-						timer.Destroy( "tcb_StaminaTimer" )
-						return false
-					end
-					local vel = ply:GetVelocity()
-					if vel.x >= DefaultWalkSpeed or vel.x <= -DefaultWalkSpeed or vel.y >= DefaultWalkSpeed or vel.y <= -DefaultWalkSpeed then
-						ply:SetNWInt( "tcb_Stamina", ply:GetNWInt( "tcb_Stamina" ) - 1 )
+	ply.__Stamina = 100
+end)
+
+//SetupMove
+hook.Add( "SetupMove", "StaminaPress", function( ply, mvd, ucmd )
+	if !IsValid( ply ) then return end
+
+	if !ply:Alive() or ply:GetMoveType() ==  MOVETYPE_LADDER or ply:GetMoveType() == MOVETYPE_NOCLIP or ply:InVehicle() then return end
+
+	local IsMoving = ply:GetVelocity():Length2DSqr() > 0
+
+	local function IsRunning()
+		local vel = ply:GetVelocity()
+
+		if ( vel.x > ply:GetWalkSpeed() and vel.x <= ply:GetRunSpeed() ) or ( vel.x < -ply:GetWalkSpeed() and vel.x >= -ply:GetRunSpeed() ) or ( vel.y > ply:GetWalkSpeed() and vel.y <= ply:GetRunSpeed() ) or ( vel.y < -ply:GetWalkSpeed() and vel.y >= -ply:GetRunSpeed() ) then
+			--if CLIENT then print( "You're running!" ) end
+			return true
+		end
+		return false
+	end
+
+	if !IsMoving then return end
+
+	if /*mvd:KeyDown( IN_SPEED )*/ IsRunning() then
+		if ply.__Stamina > 1 and !ply.STAM_RunBlock then
+			timer.Destroy( ply:SteamID() .. "_StaminaGain" )
+
+			if !timer.Exists(ply:SteamID() .. "_StaminaTimer") then
+				timer.Create( ply:SteamID() .. "_StaminaTimer", StaminaDrainSpeed, 0, function()
+					if !IsValid(ply) then return end
+
+					if ply.__Stamina <= 0 then
+						mvd:RemoveKeys( IN_SPEED )
+						ply.STAM_RunBlock = true
+						timer.Destroy( ply:SteamID() .. "_StaminaTimer"..CurTime() )
+					elseif IsRunning() then
+						ply.__Stamina = ply.__Stamina - 1
 					end
 				end)
-			else
-				ply:SetRunSpeed( DefaultWalkSpeed )
-				timer.Destroy( "tcb_StaminaTimer" )
 			end
+		else
+			mvd:RemoveKeys( IN_SPEED )
+			timer.Destroy( ply:SteamID() .. "_StaminaTimer" )
+			StaminaRestore( ply )
 		end
-		if key == IN_JUMP or ply:KeyDown(IN_JUMP) then
-			if ply:GetNWInt( "tcb_Stamina" ) >= DisableLevel then
-				ply:SetJumpPower( DefaultJumpPower )
-				ply:SetNWInt( "tcb_Stamina", ply:GetNWInt( "tcb_Stamina" ) - 1 )
-			else
-				ply:SetJumpPower( 0 )
-			end
-		end
+	else
+		timer.Destroy( ply:SteamID() .. "_StaminaTimer" )
+		StaminaRestore( ply )
 	end
-	hook.Add( "KeyPress", "tcb_StaminaPress", tcb_StaminaPress ) 
 
-	-- KeyRelease
-	function tcb_StaminaRelease( ply, key )
-		if key == IN_SPEED and !ply:KeyDown(IN_SPEED) then
-			timer.Destroy( "tcb_StaminaTimer" )
-			tcb_StaminaRestore( ply )
+	if mvd:KeyReleased( IN_SPEED ) then
+		timer.Destroy( ply:SteamID() .. "_StaminaTimer" )
+		StaminaRestore( ply )
+		if ply.__Stamina <= 1 then
+			ply.STAM_RunBlock = true
 		end
 	end
-	hook.Add( "KeyRelease", "tcb_StaminaRelease", tcb_StaminaRelease ) 
-	
-	-- StaminaRestore
-	function tcb_StaminaRestore( ply )
-		timer.Create( "tcb_StaminaGain", StaminaRestoreSpeed, 0, function( ) 
-			if ply:GetNWInt( "tcb_Stamina" ) >= 100 then
-				return false
+end)
+
+//PlayerTick
+/*hook.Add( "PlayerTick", "StaminaThink", function( ply, mvd )
+	if !mvd:KeyDown( IN_SPEED ) then
+		timer.Destroy( ply:SteamID() .. "_StaminaTimer" )
+		StaminaRestore( ply )
+	end
+end)*/
+
+//StaminaRestore
+function StaminaRestore( ply )
+	if !timer.Exists( ply:SteamID() .. "_StaminaGain" ) then
+		timer.Create( ply:SteamID() .. "_StaminaGain", StaminaRestoreSpeed, 0, function() 
+			if ply.__Stamina >= 100 then
+				ply.STAM_RunBlock = nil
+				timer.Destroy( ply:SteamID() .. "_StaminaGain" )
 			else
-				ply:SetNWInt( "tcb_Stamina", ply:GetNWInt( "tcb_Stamina" ) + 1 )
+				ply.__Stamina = ply.__Stamina + 1
 			end
 		end)
 	end
-
 end
 
--- Client
-if (CLIENT) then
 
+//Serverside part
+if SERVER then
+	hook.Add( "PlayerSpawn", "SharedPSpawn", function( ply ) 
+		timer.Simple( 0.15, function() ply:SendLua( [[hook.Call( "PlayerSpawn", nil, LocalPlayer() )]] ) end)
+	end)
+
+	print("____________")
+	MsgC(Color(0,255,0), "---->\n")
+	MsgC(Color(255, 0, 0), " > ") MsgC(Color(255,255,255), "tcb's Stamina Mod Loaded ...\n")
+	MsgC(Color(255, 0, 0), " > ") MsgC(Color(255,255,255), "		Version: 1.0\n")
+	MsgC(Color(0,255,0), "---->\n")
+	print("____________")
+end
+
+//Clientside part (HUD)
+if CLIENT then
 	-- HUDPaint
-	function tcb_StaminaDraw( )
-		if ShouldDrawHUD == true then 
-			if LocalPlayer():GetNWInt( "tcb_Stamina" ) <= DisableLevel then
+	--[[hook.Add( "HUDPaint", "StaminaDrawHUD", function()
+		if LocalPlayer():Alive() then
+			if LocalPlayer().RunBlock then
 				StaminaDrawColor = Color( 255, 0, 0, 255)
 			else
 				StaminaDrawColor = Color( 255, 255, 255, 255)
 			end
-			draw.DrawText( "Stamina: "..LocalPlayer():GetNWInt( "tcb_Stamina" ), "TargetID", 11, 11, Color(0, 0, 0, 255) )
-			draw.DrawText( "Stamina: "..LocalPlayer():GetNWInt( "tcb_Stamina" ), "TargetID", 10, 10, StaminaDrawColor )
+			draw.DrawText( "Stamina: "..LocalPlayer().__Stamina, "TargetID", 11, 11, Color(0, 0, 0, 255) )
+			draw.DrawText( "Stamina: "..LocalPlayer().__Stamina, "TargetID", 10, 10, StaminaDrawColor )
 		end
-	end
-	hook.Add( "HUDPaint", "tcb_StaminaDraw", tcb_StaminaDraw )
-
+	end)]]
 end
-
--- Welcome Message
-print("\n")
-MsgC(Color(0,255,0), "---->\n")
-print("\n")
-MsgC(Color(255, 0, 0), " > ") MsgC(Color(255,255,255), "TCB Stamina Loaded ...\n")
-MsgC(Color(255, 0, 0), " > ") MsgC(Color(255,255,255), "Version: 1.0\n")
-print("\n")
-MsgC(Color(255, 0, 0), " > ") MsgC(Color(255,255,255), "Updates can be found on my website\n")
-MsgC(Color(255, 0, 0), " > ") MsgC(Color(255,255,255), "http://www.thecodingbeast.com/products\n")
-print("\n")
-MsgC(Color(0,255,0), "---->\n")
-print("\n")
