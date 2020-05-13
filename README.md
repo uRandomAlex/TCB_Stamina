@@ -1,3 +1,7 @@
+<h1>How to install:</h1>
+
+- just put tcb_stamina in garrysmod/addons
+
 <p align="center">
   <img src="https://www.thecodingbeast.com/img/products/stamina.png" alt="TCB - Stamina"/>
   <h1 align="center">:no_entry: THIS PROJECT IS DEPRECATED :no_entry:</h1>
