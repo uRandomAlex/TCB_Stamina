@@ -37,6 +37,8 @@ hook.Add( "PlayerSpawn", "StaminaPSpawn", function( ply )
 		timer.Destroy( ply:SteamID() .. "_StaminaTimer" )
 	end
 	ply.__Stamina = 100
+	ply._pRunSpeed = nil
+	ply.STAM_RunBlock = nil
 end)
 
 //SetupMove
@@ -68,7 +70,12 @@ hook.Add( "SetupMove", "StaminaPress", function( ply, mvd, ucmd )
 					if !IsValid(ply) then return end
 
 					if ply.__Stamina <= 0 then
+						ply._pRunSpeed = math.max(ply._pRunSpeed or 0, ply:GetRunSpeed())
+						ply:SetRunSpeed(ply:GetWalkSpeed())
 						mvd:RemoveKeys( IN_SPEED )
+						ucmd:RemoveKey(IN_SPEED)
+						mvd:SetMaxSpeed(ply:GetWalkSpeed())
+						mvd:SetMaxClientSpeed(ply:GetWalkSpeed())
 						ply.STAM_RunBlock = true
 						timer.Destroy( ply:SteamID() .. "_StaminaTimer"..CurTime() )
 					elseif IsRunning() then
@@ -77,7 +84,12 @@ hook.Add( "SetupMove", "StaminaPress", function( ply, mvd, ucmd )
 				end)
 			end
 		else
+			ply._pRunSpeed = math.max(ply._pRunSpeed or 0, ply:GetRunSpeed())
+			ply:SetRunSpeed(ply:GetWalkSpeed())
 			mvd:RemoveKeys( IN_SPEED )
+			ucmd:RemoveKey(IN_SPEED)
+			mvd:SetMaxSpeed(ply:GetWalkSpeed())
+			mvd:SetMaxClientSpeed(ply:GetWalkSpeed())
 			timer.Destroy( ply:SteamID() .. "_StaminaTimer" )
 			StaminaRestore( ply )
 		end
@@ -110,6 +122,8 @@ function StaminaRestore( ply )
 			if ply.__Stamina >= 100 then
 				ply.STAM_RunBlock = nil
 				timer.Destroy( ply:SteamID() .. "_StaminaGain" )
+				if ply._pRunSpeed then ply:SetRunSpeed(ply._pRunSpeed) end
+				ply._pRunSpeed = nil
 			else
 				ply.__Stamina = ply.__Stamina + 1
 			end
