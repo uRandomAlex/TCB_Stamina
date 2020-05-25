@@ -50,9 +50,10 @@ hook.Add( "SetupMove", "StaminaPress", function( ply, mvd, ucmd )
 	local IsMoving = ply:GetVelocity():Length2DSqr() > 0
 
 	local function IsRunning()
-		local vel = ply:GetVelocity()
+		local vel = ply:GetVelocity():LengthSqr()
 
-		if ( vel.x > ply:GetWalkSpeed() and vel.x <= ply:GetRunSpeed() ) or ( vel.x < -ply:GetWalkSpeed() and vel.x >= -ply:GetRunSpeed() ) or ( vel.y > ply:GetWalkSpeed() and vel.y <= ply:GetRunSpeed() ) or ( vel.y < -ply:GetWalkSpeed() and vel.y >= -ply:GetRunSpeed() ) then
+		if vel > math.min((ply:GetWalkSpeed() + 10)^2, (ply:GetRunSpeed() - 1)^2) then
+		--if ( vel.x > ply:GetWalkSpeed() and vel.x <= ply:GetRunSpeed() ) or ( vel.x < -ply:GetWalkSpeed() and vel.x >= -ply:GetRunSpeed() ) or ( vel.y > ply:GetWalkSpeed() and vel.y <= ply:GetRunSpeed() ) or ( vel.y < -ply:GetWalkSpeed() and vel.y >= -ply:GetRunSpeed() ) then
 			--if CLIENT then print( "You're running!" ) end
 			return true
 		end
